@@ -129,4 +129,4 @@ A documentação interativa (Swagger) é gerada automaticamente em:
 
 ## 📄 Licença
 
-Projeto de estudo, livre para uso e modificação.
+Este projeto está sob a licença MIT — veja o arquivo [LICENSE](LICENSE) para mais detalhes.
