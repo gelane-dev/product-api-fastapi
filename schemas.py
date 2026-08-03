@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, EmailStr, Field
 from typing import Optional
 from datetime import datetime
 
@@ -16,3 +16,7 @@ class atualizarproduto(BaseModel):
     preco: Optional[float]=None
     estoque: Optional[int]=None
        
+class criarusuarios(BaseModel):
+    name: str = Field(min_lenght=3, max_lenght=100)
+    email: EmailStr
+    senha: str = Field(min_length=6)
