@@ -19,4 +19,4 @@ class atualizarproduto(BaseModel):
 class criarusuarios(BaseModel):
     name: str = Field(min_lenght=3, max_lenght=100)
     email: EmailStr
-    senha: str = Field(min_length=6)
+    senha: str = Field(min_lenght=6)
