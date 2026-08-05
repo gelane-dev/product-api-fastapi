@@ -1,9 +1,9 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Depends
 from database import conectar
 from schemas import criarproduto, atualizarproduto, criarusuarios
 from datetime import datetime
 import psycopg2
-from auth import hash_senha, verificar_senha, criar_token
+from auth import hash_senha, verificar_senha, criar_token, obter_usuario_atual, exigir_admin
 
 app = FastAPI()
 
@@ -15,18 +15,18 @@ def login(email:str, senha:str):
 
     try:
 
-        cursor.execute('SELECT id, email, senha FROM usuarios where email = %s', (email,))
+        cursor.execute('SELECT role, id, email, senha FROM usuarios where email = %s', (email,))
         usuario = cursor.fetchone()
 
         if usuario is None:
             raise HTTPException(status_code=401, detail="Credenciais inválidas")
 
-        id_usuario, email_usuario, hash_salvo = usuario
+        role_usuario, id_usuario, email_usuario, hash_salvo = usuario
 
         if not verificar_senha(senha, hash_salvo):
             raise HTTPException(status_code=401, detail="Credenciais inválidas")
 
-        token = criar_token({"sub": email_usuario, "id": id_usuario})
+        token = criar_token({"role": role_usuario, "sub": email_usuario, "id": id_usuario})
 
         return {"access_token": token, "token_type": "bearer"}
 
@@ -94,7 +94,7 @@ def buscar_produtos():
         conn.close()
 
 @app.post("/produtos/",status_code = 201)
-def criar_produtos(produto: criarproduto):
+def criar_produtos(produto: criarproduto, usuario: dict = Depends(exigir_admin)):
 
     conn = conectar()
     cursor = conn.cursor()
@@ -131,7 +131,7 @@ def criar_produtos(produto: criarproduto):
         conn.close()
 
 @app.put("/produtos/{id}")
-def atualizar_produtos(id: int, produto: atualizarproduto):
+def atualizar_produtos(id: int, produto: atualizarproduto, usuario: dict = Depends(exigir_admin)):
 
     conn = conectar()
     cursor = conn.cursor()
@@ -179,7 +179,7 @@ def atualizar_produtos(id: int, produto: atualizarproduto):
         conn.close()
 
 @app.delete("/produtos/{id}")
-def deletar_produtos(id:int, ):
+def deletar_produtos(id: int, usuario: dict = Depends(exigir_admin)):
 
     
     conn = conectar()
