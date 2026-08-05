@@ -1,8 +1,11 @@
-from passlib.context import CryptContext
-from jose import jwt
 import os
-from dotenv import load_dotenv
 from datetime import datetime, timedelta
+
+from passlib.context import CryptContext
+from jose import jwt, JWTError
+from dotenv import load_dotenv
+from fastapi import Depends, HTTPException
+from fastapi.security import OAuth2PasswordBearer
 
 load_dotenv()
 
@@ -28,3 +31,17 @@ def criar_token(dados:dict):
     dados["exp"] = expiracao
     token = jwt.encode(dados,key=os.getenv("SECRET_KEY"),algorithm="HS256")
     return token
+
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
+def obter_usuario_atual(token: str = Depends(oauth2_scheme)):
+    try:
+        payload = jwt.decode(token, key=os.getenv("SECRET_KEY"), algorithms=["HS256"])
+        return payload
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Token inválido ou expirado")
+
+def exigir_admin(usuario: dict = Depends(obter_usuario_atual)):
+    if usuario["role"] == "admin":
+      return usuario
+    else:
+      raise HTTPException(status_code=403, detail="Token inválido ou expirado")
