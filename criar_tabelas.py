@@ -30,6 +30,7 @@ def criar_tabela():
 
         cursor.execute(""" CREATE TABLE IF NOT EXISTS usuarios(
             id SERIAL PRIMARY KEY,
+            role VARCHAR(20) DEFAULT 'cliente',
             name VARCHAR(100) NOT NULL,
             email VARCHAR(100) UNIQUE,
             senha VARCHAR(255),
@@ -96,3 +97,4 @@ def criar_tabela():
     criar_tabela_itens_pedidos()
 
 criar_tabela()
+
