@@ -53,11 +53,14 @@ def criar_tabela():
         cursor.execute(""" CREATE TABLE IF NOT EXISTS pedidos(
             id SERIAL PRIMARY KEY,
             usuarios_id INT,
+            total DECIMAL(10,2) NOT NULL,
             CONSTRAINT fk_usuarios
             FOREIGN KEY (usuarios_id)
             REFERENCES usuarios(id)
             ON DELETE CASCADE
-            ON UPDATE CASCADE
+            ON UPDATE CASCADE,
+            data_criacao TIMESTAMP
+            DEFAULT CURRENT_TIMESTAMP
         );
         """)
 
@@ -75,6 +78,7 @@ def criar_tabela():
         cursor.execute(""" CREATE TABLE IF NOT EXISTS itens_pedidos(
             id SERIAL PRIMARY KEY,
             quantidade INTEGER DEFAULT 0,
+            preco_unitario DECIMAL(10,2) NOT NULL,
             pedidos_id INT,
             produto_id INT,
             CONSTRAINT fk_pedidos
@@ -95,6 +99,6 @@ def criar_tabela():
         banco.close()
 
     criar_tabela_itens_pedidos()
-
+  
 criar_tabela()
 
