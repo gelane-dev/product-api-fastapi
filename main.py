@@ -1,6 +1,6 @@
 from fastapi import FastAPI, HTTPException, Depends
 from database import conectar
-from schemas import criarproduto, atualizarproduto, criarusuarios
+from schemas import criarproduto, atualizarproduto, criarusuarios, criarpedido
 from datetime import datetime
 import psycopg2
 from auth import hash_senha, verificar_senha, criar_token, obter_usuario_atual, exigir_admin
@@ -204,7 +204,75 @@ def deletar_produtos(id: int, usuario: dict = Depends(exigir_admin)):
         conn.close()
     
 
+@app.post("/pedidos/", status_code=201)
+def criar_pedido(pedido: criarpedido, usuario: dict = Depends(obter_usuario_atual)):
 
+    conn = conectar()
+    cursor = conn.cursor()
+
+    try:
+        itens_calculados =[]
+        for item in pedido.itens:
+            cursor.execute("SELECT preco, estoque FROM produto WHERE id = %s", (item.produto_id,))
+            resultado = cursor.fetchone()
+            
+            if resultado is None:
+                raise HTTPException(status_code = 404, detail = "produto não encontrado")
+
+            preco, estoque = resultado
+            
+            if estoque < item.quantidade:
+                raise HTTPException(status_code=400, detail="estoque menor que quantidade pedida")
+
+            valor = preco * item.quantidade
+
+            itens_calculados.append({
+                "produto_id": item.produto_id,
+                "quantidade": item.quantidade,
+                "preco": preco,
+                "valor": valor
+                })
+        total = 0
+        for item_calc in itens_calculados:
+                total = total + item_calc["valor"]
+
+        cursor.execute("""INSERT INTO pedidos (usuarios_id, total) VALUES (%s, %s)
+            RETURNING id""", (usuario["id"], total))
+
+        pedido_id = cursor.fetchone()[0]
+
+        for item_cal in itens_calculados:                
+            cursor.execute("""INSERT INTO itens_pedidos (pedidos_id, produto_id, quantidade, preco_unitario) 
+                        VALUES (%s, %s, %s, %s)
+                    """,(
+            pedido_id,
+            item_cal["produto_id"],
+            item_cal["quantidade"],
+            item_cal["preco"]
+            ))
+            cursor.execute("""UPDATE produto SET estoque = estoque - %s WHERE id = %s""",(item_cal["quantidade"], item_cal["produto_id"]))
+                    
+        conn.commit()
+        return {"mensagem": "Pedido criado com sucesso", "pedido_id": pedido_id, "total": total}
+
+    except HTTPException:
+        conn.rollback()
+        raise
+    except psycopg2.Error:
+        conn.rollback()
+        raise HTTPException(status_code=500, detail="Erro ao criar pedido no banco de dados")
+    finally:
+
+        cursor.close()
+        conn.close()
+    
+    
+    
+    
+    
+    
+
+   
 
     
 
