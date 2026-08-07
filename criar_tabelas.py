@@ -54,6 +54,7 @@ def criar_tabela():
             id SERIAL PRIMARY KEY,
             usuarios_id INT,
             total DECIMAL(10,2) NOT NULL,
+            status VARCHAR(20) NOT NULL DEFAULT 'pendente' CHECK (status IN ('pendente', 'pago', 'enviado', 'cancelado')),
             CONSTRAINT fk_usuarios
             FOREIGN KEY (usuarios_id)
             REFERENCES usuarios(id)
@@ -99,6 +100,6 @@ def criar_tabela():
         banco.close()
 
     criar_tabela_itens_pedidos()
-  
+
 criar_tabela()
 
