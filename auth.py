@@ -1,11 +1,11 @@
 import os
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from passlib.context import CryptContext
 from jose import jwt, JWTError
 from dotenv import load_dotenv
 from fastapi import Depends, HTTPException
-from fastapi.security import OAuth2PasswordBearer
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 
 load_dotenv()
 
@@ -27,15 +27,15 @@ def verificar_senha(senha:str, hash_salvo: str):
 
 def criar_token(dados:dict):
 
-    expiracao = datetime.now() + timedelta(minutes=60)
+    expiracao = datetime.now(timezone.utc) + timedelta(minutes=60)
     dados["exp"] = expiracao
     token = jwt.encode(dados,key=os.getenv("SECRET_KEY"),algorithm="HS256")
     return token
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
-def obter_usuario_atual(token: str = Depends(oauth2_scheme)):
+oauth2_scheme = HTTPBearer()
+def obter_usuario_atual(token: HTTPAuthorizationCredentials = Depends(oauth2_scheme)):
     try:
-        payload = jwt.decode(token, key=os.getenv("SECRET_KEY"), algorithms=["HS256"])
+        payload = jwt.decode(token.credentials, key=os.getenv("SECRET_KEY"), algorithms=["HS256"])
         return payload
     except JWTError:
         raise HTTPException(status_code=401, detail="Token inválido ou expirado")
