@@ -1,11 +1,18 @@
 from fastapi import FastAPI, HTTPException, Depends
 from database import conectar
-from schemas import criarproduto, atualizarproduto, criarusuarios, criarpedido
+from schemas import criarproduto, atualizarproduto, criarusuarios, criarpedido, atualizarstatus
 from datetime import datetime
 import psycopg2
 from auth import hash_senha, verificar_senha, criar_token, obter_usuario_atual, exigir_admin
 
 app = FastAPI()
+
+transicoes_validas = {
+    "pendente" : ["pago", "cancelado"],
+    "pago" : ["pendente", "enviado", "cancelado"],
+    "enviado" : ["pago"],
+    "cancelado" : []
+}
 
 @app.post("/login/")
 def login(email:str, senha:str):
@@ -120,7 +127,7 @@ def criar_produtos(produto: criarproduto, usuario: dict = Depends(exigir_admin))
 
         conn.commit()
 
-        return {"produto criado com sucesso"}
+        return {"mensagem": "produto criado com sucesso"}
 
     except HTTPException:
         raise
@@ -250,7 +257,7 @@ def criar_pedido(pedido: criarpedido, usuario: dict = Depends(obter_usuario_atua
             item_cal["quantidade"],
             item_cal["preco"]
             ))
-            cursor.execute("""UPDATE produto SET estoque = estoque - %s WHERE id = %s""",(item_cal["quantidade"], item_cal["produto_id"]))
+            cursor.execute("UPDATE produto SET estoque = estoque - %s WHERE id = %s",(item_cal["quantidade"], item_cal["produto_id"]))
                     
         conn.commit()
         return {"mensagem": "Pedido criado com sucesso", "pedido_id": pedido_id, "total": total}
@@ -266,7 +273,53 @@ def criar_pedido(pedido: criarpedido, usuario: dict = Depends(obter_usuario_atua
         cursor.close()
         conn.close()
     
-    
+@app.put("/pedidos/{id}/status")
+def atualizar_status_pedido(id: int, status: atualizarstatus, usuario: dict = Depends(exigir_admin)):
+
+    conn = conectar()
+    cursor = conn.cursor()
+
+    try:
+
+        cursor.execute("SELECT status FROM pedidos WHERE id = %s", (id,))
+        resultado = cursor.fetchone()
+            
+        if resultado is None:
+            raise HTTPException(status_code = 404, detail = "pedido não encontrado")
+       
+        status_atual, = resultado
+
+        if status.status not in transicoes_validas[status_atual]:
+            raise HTTPException(status_code = 400, detail = f"Não é possível mudar de '{status_atual}' para '{status.status}'")
+
+        cursor.execute("""
+                    UPDATE pedidos
+                    SET status = %s
+                    WHERE id = %s
+                """, (
+                    status.status,
+                    id
+                ))
+
+        if status.status == "cancelado":
+            cursor.execute("SELECT produto_id, quantidade FROM itens_pedidos WHERE pedidos_id = %s", (id,))
+            dados = cursor.fetchall()
+
+            for produto_id, quantidade in dados:
+                cursor.execute("UPDATE produto SET estoque = estoque + %s WHERE id = %s",(quantidade, produto_id))
+            
+        conn.commit()
+        return {"mensagem": "status atualizado com sucesso!"}
+
+    except HTTPException:
+        conn.rollback()
+        raise
+    except psycopg2.Error:
+        conn.rollback()
+        raise HTTPException(status_code=500, detail="Não foi possivel atualizar o status")
+    finally:
+        cursor.close()
+        conn.close()
     
     
     
