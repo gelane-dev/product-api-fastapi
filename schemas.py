@@ -17,9 +17,9 @@ class atualizarproduto(BaseModel):
     estoque: Optional[int]=None
        
 class criarusuarios(BaseModel):
-    name: str = Field(min_lenght=3, max_lenght=100)
+    name: str = Field(min_length=3, max_length=100)
     email: EmailStr
-    senha: str = Field(min_lenght=6)
+    senha: str = Field(min_length=6)
 
 class itempedido(BaseModel):
     produto_id: int
@@ -27,3 +27,6 @@ class itempedido(BaseModel):
 
 class criarpedido(BaseModel):
     itens: list[itempedido]
+
+class atualizarstatus(BaseModel):
+    status: str
