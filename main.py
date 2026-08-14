@@ -1,110 +1,81 @@
 from fastapi import FastAPI, HTTPException, Depends
-from database import conectar
 from schemas import criarproduto, atualizarproduto, criarusuarios, criarpedido, atualizarstatus
 from datetime import datetime
-import psycopg2
 from auth import hash_senha, verificar_senha, criar_token, obter_usuario_atual, exigir_admin
+from models import statuspedido, usuario, statuspedido, produtos, pedido, itenspedidos
+from database import get_db
+from sqlalchemy.orm import Session
+from sqlalchemy.exc import OperationalError
 
 app = FastAPI()
 
 transicoes_validas = {
-    "pendente" : ["pago", "cancelado"],
-    "pago" : ["pendente", "enviado", "cancelado"],
-    "enviado" : ["pago"],
-    "cancelado" : []
+    statuspedido.PENDENTE: [ statuspedido.PAGO, statuspedido.CANCELADO],
+    statuspedido.PAGO: [statuspedido.PENDENTE, statuspedido.ENVIADO, statuspedido.CANCELADO],
+    statuspedido.ENVIADO : [statuspedido.PAGO],
+    statuspedido.CANCELADO : []
 }
 
 @app.post("/login/")
-def login(email:str, senha:str):
-
-    conn = conectar()
-    cursor = conn.cursor()
+def login(email:str, senha:str, db: Session = Depends(get_db)):
 
     try:
 
-        cursor.execute('SELECT role, id, email, senha FROM usuarios where email = %s', (email,))
-        usuario = cursor.fetchone()
+        usuario_login = db.query(usuario).filter(usuario.email == email).first()
 
-        if usuario is None:
+        if usuario_login is None:
             raise HTTPException(status_code=401, detail="Credenciais inválidas")
 
-        role_usuario, id_usuario, email_usuario, hash_salvo = usuario
-
-        if not verificar_senha(senha, hash_salvo):
+        if not verificar_senha(senha, usuario_login.senha):
             raise HTTPException(status_code=401, detail="Credenciais inválidas")
 
-        token = criar_token({"role": role_usuario, "sub": email_usuario, "id": id_usuario})
+        token = criar_token({"role": usuario_login.role, "sub": usuario_login.email, "id": usuario_login.id})
 
         return {"access_token": token, "token_type": "bearer"}
 
     except HTTPException:
         raise
-    except psycopg2.Error:
+    except  OperationalError:
+        db.rollback()
         raise HTTPException(status_code=500, detail="Erro ao consultar o banco de dados")
-
-    finally:
-        cursor.close()
-        conn.close()
-
+   
 @app.post("/cadastro/",status_code = 201)
-def criar_usuario(usuarios: criarusuarios):
-
-    conn = conectar()
-    cursor = conn.cursor()
+def criar_usuario(usuarios: criarusuarios, db: Session = Depends(get_db)):
 
     try:
 
-        cursor.execute('''INSERT INTO usuarios
-            (name,email,senha)
-            values (%s,%s,%s)
-            ''',(
-            usuarios.name,
-            usuarios.email,
-            hash_senha(usuarios.senha),
-            ))
-
-        conn.commit()
+        cadastrar = usuario(name=usuarios.name, email=usuarios.email, senha=usuarios.senha)
+        db.add(cadastrar)
+        db.commit()
 
         return {"mensagem":"usuario criado com sucesso"}
 
     except HTTPException:
         raise
-    except psycopg2.Error:
+    except OperationalError:
+        db.rollback()
         raise HTTPException(status_code=500, detail="Erro ao criar usuário no banco de dados")
-    finally:
-        cursor.close()
-        conn.close()
 
 @app.get("/produtos/")
-def buscar_produtos():
-
-    conn = conectar()
-    cursor = conn.cursor()
+def buscar_produtos(db: Session = Depends(get_db)):
 
     try:
 
-        cursor.execute('SELECT * FROM produto')
-        dados = cursor.fetchall()
+        buscar = db.query(produtos).all()
 
-        if not dados:
+        if not buscar:
             raise HTTPException(status_code = 404, detail = "produto não encontrado")
         
-        return dados
+        return buscar
     
     except HTTPException:
         raise
-    except psycopg2.Error:
+    except OperationalError:
+        db.rollback()
         raise HTTPException(status_code=500, detail="Erro ao consultar o banco de dados")
 
-    finally:
-        cursor.close()
-        conn.close()
-
 @app.post("/produtos/",status_code = 201)
-def criar_produtos(produto: criarproduto, usuario: dict = Depends(exigir_admin)):
-
-    conn = conectar()
-    cursor = conn.cursor()
+def criar_produtos(produto: criarproduto, usuario: dict = Depends(exigir_admin), db: Session = Depends(get_db)):
 
     try:
 
@@ -114,40 +85,26 @@ def criar_produtos(produto: criarproduto, usuario: dict = Depends(exigir_admin))
         if produto.preco < 0:
             raise HTTPException(status_code=400, detail="preco não pode ser menor que 0")
 
-        cursor.execute('''INSERT INTO produto 
-            (name,categoria,preco,estoque,data_criacao)
-            values (%s,%s,%s,%s,%s)
-            ''',(
-            produto.name,
-            produto.categoria,
-            produto.preco,
-            produto.estoque,
-            datetime.now()
-            ))
+        criar = produtos(name=produto.name, categoria=produto.categoria, preco=produto.preco, estoque=produto.estoque, data_criacao=datetime.now())
 
-        conn.commit()
+        db.add(criar)
+        db.commit()
 
         return {"mensagem": "produto criado com sucesso"}
 
     except HTTPException:
         raise
-    except psycopg2.Error:
+    except OperationalError:
+        db.rollback()
         raise HTTPException(status_code=500, detail="Erro ao criar produto no banco de dados")
-    finally:
-        cursor.close()
-        conn.close()
 
 @app.put("/produtos/{id}")
-def atualizar_produtos(id: int, produto: atualizarproduto, usuario: dict = Depends(exigir_admin)):
-
-    conn = conectar()
-    cursor = conn.cursor()
+def atualizar_produtos(id: int, produto: atualizarproduto, usuario: dict = Depends(exigir_admin), db: Session = Depends(get_db)):
 
     try:
+        alteracao = db.query(produtos).filter(produtos.id == id).first()
 
-        cursor.execute("SELECT id FROM produto WHERE id = %s", (id,))
-
-        if cursor.fetchone() is None:
+        if alteracao is None:
             raise HTTPException(status_code = 404, detail = "produto não encontrado")
 
         if produto.estoque is not None and produto.estoque > 1000:
@@ -159,167 +116,118 @@ def atualizar_produtos(id: int, produto: atualizarproduto, usuario: dict = Depen
         if produto.preco is not None and produto.preco < 0:
             raise HTTPException(status_code=400, detail="preco não pode ser menor que 0")
 
-        cursor.execute("""
-            UPDATE produto
-            SET name = %s,
-                categoria = %s,
-                preco = %s,
-                estoque = %s
-            WHERE id = %s
-        """, (
-            produto.name,
-            produto.categoria,
-            produto.preco,
-            produto.estoque,
-            id
-        ))
-    
-        conn.commit()
+        alteracao.name = produto.name
+        alteracao.categoria = produto.categoria
+        alteracao.preco = produto.preco
+        alteracao.estoque = produto.estoque
+
+        db.add(alteracao)
+        db.commit()
+
         return {"mensagem": "Produto atualizado com sucesso"}
 
     except HTTPException:
         raise
-    except psycopg2.Error:
+    except OperationalError:
+        db.rollback()
         raise HTTPException(status_code=500, detail="Erro ao atualizar produto no banco de dados")
-    finally:
-        cursor.close()
-        conn.close()
-
-@app.delete("/produtos/{id}")
-def deletar_produtos(id: int, usuario: dict = Depends(exigir_admin)):
-
     
-    conn = conectar()
-    cursor = conn.cursor()
+@app.delete("/produtos/{id}")
+def deletar_produtos(id: int, usuario: dict = Depends(exigir_admin), db: Session = Depends(get_db)):
 
     try:
-        cursor.execute("SELECT id FROM produto WHERE id = %s", (id,))
-        if cursor.fetchone() is None:
+        deletar = db.query(produtos).filter(produtos.id == id).first()
+
+        if deletar is None:
             raise HTTPException(status_code=404, detail="Produto não encontrado")
 
-        cursor.execute("DELETE FROM produto WHERE id = %s", (id,))
-        
-        conn.commit()
+        db.delete(deletar)
+    
         return {"mensagem": "Produto deletado com sucesso"}
     
     except HTTPException:
         raise
-    except psycopg2.Error:
+    except OperationalError:
+        db.rollback()
         raise HTTPException(status_code=500, detail="Erro ao deletar produto no banco de dados")
-    finally:
-        cursor.close()
-        conn.close()
-    
 
 @app.post("/pedidos/", status_code=201)
-def criar_pedido(pedido: criarpedido, usuario: dict = Depends(obter_usuario_atual)):
-
-    conn = conectar()
-    cursor = conn.cursor()
+def criar_pedido(pedidocriar: criarpedido, usuario: dict = Depends(obter_usuario_atual), db: Session = Depends(get_db)):
 
     try:
         itens_calculados =[]
-        for item in pedido.itens:
-            cursor.execute("SELECT preco, estoque FROM produto WHERE id = %s", (item.produto_id,))
-            resultado = cursor.fetchone()
-            
-            if resultado is None:
-                raise HTTPException(status_code = 404, detail = "produto não encontrado")
+        for item in pedidocriar.itens:
+            produto_db = db.query(produtos).filter(produtos.id == item.produto_id).first()
 
-            preco, estoque = resultado
+            if produto_db is None:
+                raise HTTPException(status_code = 404, detail = "produto não encontrado")
             
-            if estoque < item.quantidade:
+            if produto_db.estoque < item.quantidade:
                 raise HTTPException(status_code=400, detail="estoque menor que quantidade pedida")
 
-            valor = preco * item.quantidade
+            valor = produto_db.preco * item.quantidade
 
             itens_calculados.append({
-                "produto_id": item.produto_id,
+                "produto": produto_db,
                 "quantidade": item.quantidade,
-                "preco": preco,
+                "preco":  produto_db.preco,
                 "valor": valor
-                })
-        total = 0
-        for item_calc in itens_calculados:
-                total = total + item_calc["valor"]
+            })
 
-        cursor.execute("""INSERT INTO pedidos (usuarios_id, total) VALUES (%s, %s)
-            RETURNING id""", (usuario["id"], total))
+        total = sum(item_calc["valor"] for item_calc in itens_calculados)
+        novo_pedido = pedido(usuario_id=usuario["id"], total=total)
 
-        pedido_id = cursor.fetchone()[0]
+        db.add(novo_pedido)
+        db.flush()
 
-        for item_cal in itens_calculados:                
-            cursor.execute("""INSERT INTO itens_pedidos (pedidos_id, produto_id, quantidade, preco_unitario) 
-                        VALUES (%s, %s, %s, %s)
-                    """,(
-            pedido_id,
-            item_cal["produto_id"],
-            item_cal["quantidade"],
-            item_cal["preco"]
-            ))
-            cursor.execute("UPDATE produto SET estoque = estoque - %s WHERE id = %s",(item_cal["quantidade"], item_cal["produto_id"]))
-                    
-        conn.commit()
-        return {"mensagem": "Pedido criado com sucesso", "pedido_id": pedido_id, "total": total}
+        for item_calc in itens_calculados: 
+            novo_item = itenspedidos(
+                pedidos_id=novo_pedido.id,
+                produto_id=item_calc["produto"].id,
+                quantidade=item_calc["quantidade"],
+                preco_unitario=item_calc["preco"]
+            )
+            db.add(novo_item)
+            item_calc["produto"].estoque -= item_calc["quantidade"]
+
+        db.commit()
+
+        return {"mensagem": "Pedido criado com sucesso", "pedido_id": novo_pedido.id, "total": total}
 
     except HTTPException:
-        conn.rollback()
+        db.rollback()
         raise
-    except psycopg2.Error:
-        conn.rollback()
+    except OperationalError:
+        db.rollback()
         raise HTTPException(status_code=500, detail="Erro ao criar pedido no banco de dados")
-    finally:
-
-        cursor.close()
-        conn.close()
-    
+ 
 @app.put("/pedidos/{id}/status")
-def atualizar_status_pedido(id: int, status: atualizarstatus, usuario: dict = Depends(exigir_admin)):
-
-    conn = conectar()
-    cursor = conn.cursor()
+def atualizar_status_pedido(id: int, status: atualizarstatus, usuario: dict = Depends(exigir_admin), db: Session = Depends(get_db)):
 
     try:
-
-        cursor.execute("SELECT status FROM pedidos WHERE id = %s", (id,))
-        resultado = cursor.fetchone()
+        pedido_db = db.query(pedido).filter(pedido.id == id).first()
             
-        if resultado is None:
+        if pedido_db is None:
             raise HTTPException(status_code = 404, detail = "pedido não encontrado")
-       
-        status_atual, = resultado
 
-        if status.status not in transicoes_validas[status_atual]:
-            raise HTTPException(status_code = 400, detail = f"Não é possível mudar de '{status_atual}' para '{status.status}'")
+        if status.status not in transicoes_validas[pedido_db.status]:
+            raise HTTPException(status_code = 400, detail = f"Não é possível mudar de '{pedido_db.status}' para '{status.status}'")
 
-        cursor.execute("""
-                    UPDATE pedidos
-                    SET status = %s
-                    WHERE id = %s
-                """, (
-                    status.status,
-                    id
-                ))
+        pedido_db.status = status.status
 
-        if status.status == "cancelado":
-            cursor.execute("SELECT produto_id, quantidade FROM itens_pedidos WHERE pedidos_id = %s", (id,))
-            dados = cursor.fetchall()
+        if status.status == statuspedido.CANCELADO:
+             for item in pedido_db.itens:
+                item.produto.estoque += item.quantidade
 
-            for produto_id, quantidade in dados:
-                cursor.execute("UPDATE produto SET estoque = estoque + %s WHERE id = %s",(quantidade, produto_id))
-            
-        conn.commit()
+        db.commit()
         return {"mensagem": "status atualizado com sucesso!"}
 
     except HTTPException:
-        conn.rollback()
+        db.rollback()
         raise
-    except psycopg2.Error:
-        conn.rollback()
+    except OperationalError:
+        db.rollback()
         raise HTTPException(status_code=500, detail="Não foi possivel atualizar o status")
-    finally:
-        cursor.close()
-        conn.close()
     
     
     
