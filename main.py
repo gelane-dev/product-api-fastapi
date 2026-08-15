@@ -1,5 +1,5 @@
 from fastapi import FastAPI, HTTPException, Depends
-from schemas import criarproduto, atualizarproduto, criarusuarios, criarpedido, atualizarstatus
+from schemas import criarproduto, atualizarproduto, criarusuarios, criarpedido, atualizarstatus, loginschema
 from datetime import datetime
 from auth import hash_senha, verificar_senha, criar_token, obter_usuario_atual, exigir_admin
 from models import statuspedido, usuario, statuspedido, produtos, pedido, itenspedidos
@@ -17,16 +17,16 @@ transicoes_validas = {
 }
 
 @app.post("/login/")
-def login(email:str, senha:str, db: Session = Depends(get_db)):
+def login(credenciais: loginschema, db: Session = Depends(get_db)):
 
     try:
 
-        usuario_login = db.query(usuario).filter(usuario.email == email).first()
+        usuario_login = db.query(usuario).filter(usuario.email == credenciais.email).first()
 
         if usuario_login is None:
             raise HTTPException(status_code=401, detail="Credenciais inválidas")
 
-        if not verificar_senha(senha, usuario_login.senha):
+        if not verificar_senha(credenciais.senha, usuario_login.senha):
             raise HTTPException(status_code=401, detail="Credenciais inválidas")
 
         token = criar_token({"role": usuario_login.role, "sub": usuario_login.email, "id": usuario_login.id})
@@ -44,7 +44,7 @@ def criar_usuario(usuarios: criarusuarios, db: Session = Depends(get_db)):
 
     try:
 
-        cadastrar = usuario(name=usuarios.name, email=usuarios.email, senha=usuarios.senha)
+        cadastrar = usuario(name=usuarios.name, email=usuarios.email, senha=hash_senha(usuarios.senha))
         db.add(cadastrar)
         db.commit()
 
@@ -116,10 +116,17 @@ def atualizar_produtos(id: int, produto: atualizarproduto, usuario: dict = Depen
         if produto.preco is not None and produto.preco < 0:
             raise HTTPException(status_code=400, detail="preco não pode ser menor que 0")
 
-        alteracao.name = produto.name
-        alteracao.categoria = produto.categoria
-        alteracao.preco = produto.preco
-        alteracao.estoque = produto.estoque
+        if produto.name is not None:
+            alteracao.name = produto.name
+
+        if produto.categoria is not None:
+            alteracao.categoria = produto.categoria
+
+        if produto.preco is not None:
+            alteracao.preco = produto.preco
+
+        if produto.estoque is not None:
+            alteracao.estoque = produto.estoque
 
         db.add(alteracao)
         db.commit()
@@ -142,7 +149,8 @@ def deletar_produtos(id: int, usuario: dict = Depends(exigir_admin), db: Session
             raise HTTPException(status_code=404, detail="Produto não encontrado")
 
         db.delete(deletar)
-    
+        db.commit()
+
         return {"mensagem": "Produto deletado com sucesso"}
     
     except HTTPException:
