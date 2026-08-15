@@ -1,8 +1,8 @@
 from enum import Enum 
 from sqlalchemy import Enum as SQLEnum
 from decimal import Decimal
-from sqlalchemy import create_engine, String, Numeric, ForeignKey,  DateTime
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
+from sqlalchemy import String, Numeric, ForeignKey,  DateTime
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 from database import Base
 from datetime import datetime
 
