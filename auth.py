@@ -44,4 +44,4 @@ def exigir_admin(usuario: dict = Depends(obter_usuario_atual)):
     if usuario["role"] == "admin":
       return usuario
     else:
-      raise HTTPException(status_code=403, detail="Token inválido ou expirado")
+      raise HTTPException(status_code=403, detail="Acesso restrito a administradores")
