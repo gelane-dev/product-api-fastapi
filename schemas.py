@@ -1,14 +1,13 @@
 from pydantic import BaseModel, EmailStr, Field
 from typing import Optional
 from datetime import datetime
+from models import statuspedido
 
 class criarproduto(BaseModel):
     name: str
     categoria: str
     preco: float
     estoque: int
-
-
 
 class atualizarproduto(BaseModel):
     name: Optional[str]=None
@@ -29,4 +28,8 @@ class criarpedido(BaseModel):
     itens: list[itempedido]
 
 class atualizarstatus(BaseModel):
-    status: str
+    status: statuspedido
+
+class loginschema(BaseModel):
+    email: EmailStr
+    senha: str 
