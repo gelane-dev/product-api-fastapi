@@ -39,16 +39,17 @@ Projeto de estudo que começou como um CRUD simples de produtos e evoluiu para u
  
 ```
 .
-├── main.py             # Rotas da API (endpoints)
-├── models.py            # Modelos SQLAlchemy (Produto, Usuario, Pedido, ItensPedido)
-├── schemas.py           # Modelos Pydantic (validação dos dados)
-├── auth.py               # Hash de senha, criação/validação de JWT, dependências de autorização
-├── database.py           # Engine, Session e conexão com o PostgreSQL
-├── alembic/                # Migrations do banco
-├── alembic.ini              # Configuração do Alembic
-├── requirements.txt          # Dependências do projeto
-├── .env.example                # Exemplo de variáveis de ambiente
-└── .gitignore
+└── backend/
+  ├── app/
+  │   ├── core/             # Configuração, banco e segurança
+  │   ├── models/           # Modelos SQLAlchemy
+  │   ├── routers/          # Rotas da API
+  │   ├── schemas/          # Schemas Pydantic
+  │   └── services/         # Regras de negócio
+  ├── alembic/              # Migrations do banco
+  ├── alembic.ini
+  ├── requirements.txt
+  └── .env.example
 ```
  
 ## ⚙️ Como rodar o projeto localmente
@@ -58,6 +59,7 @@ Projeto de estudo que começou como um CRUD simples de produtos e evoluiu para u
 ```bash
 git clone https://github.com/gelane-dev/product-api-fastapi.git
 cd product-api-fastapi
+cd backend
 ```
  
 ### 2. Crie e ative um ambiente virtual
@@ -96,6 +98,7 @@ DB_PASSWORD=sua_senha_aqui
 DB_PORT=5432
  
 SECRET_KEY=sua_chave_secreta_aqui
+ALGORITHM=HS256
 ```
  
 ### 5. Crie o banco e aplique as migrations
@@ -109,7 +112,7 @@ alembic upgrade head
 ### 6. Suba a aplicação
  
 ```bash
-uvicorn main:app --reload
+uvicorn app.main:app --reload
 ```
  
 A API estará disponível em `http://127.0.0.1:8000`.
