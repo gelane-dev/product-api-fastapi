@@ -47,7 +47,7 @@ def criar_usuario(usuarios: CriarUsuario, db: Session = Depends(get_db)):
         )
         db.add(cadastrar)
         db.commit()
-        return {"mensagem": "usuario criado com sucesso"}
+        return {"mensagem": "Usuário criado com sucesso"}
     except IntegrityError:
         db.rollback()
         raise HTTPException(status_code=409, detail="E-mail já cadastrado")
