@@ -121,7 +121,7 @@ def test_criar_pedido_calcula_total(cliente, headers_cliente, produto, db):
     assert verificar.total == 200
     
 
-def  test_criar_pedido_define_preco_unitario(cliente, headers_cliente, produto, db):
+def test_criar_pedido_define_preco_unitario(cliente, headers_cliente, produto, db):
     resp = cliente.post("/pedidos/", 
     headers=headers_cliente, 
     json={  
@@ -141,4 +141,60 @@ def  test_criar_pedido_define_preco_unitario(cliente, headers_cliente, produto, 
     assert verificar is not None
     assert resp.status_code == 201
     assert verificar.preco_unitario == 100
-    
+
+
+def test_admin_alterar_status_pedido(cliente, headers_admin, pedido, db):
+    resp_status = cliente.put(f"/pedidos/{pedido.id}/status", 
+    headers=headers_admin, 
+    json=
+        {
+            "status": "pago"
+        }
+    )
+
+    verificar = db.query(Pedido).filter(
+    Pedido.id == pedido.id
+    ).first()
+
+    assert verificar is not None
+    assert verificar.status == "pago"
+    assert resp_status.status_code == 200
+
+
+def test_cliente_nao_pode_alterar_status_pedido(
+    cliente, headers_cliente, pedido):
+  
+    resp_status = cliente.put(
+        f"/pedidos/{pedido.id}/status",
+        headers=headers_cliente,
+        json={
+            "status": "pago"
+        },
+    )
+
+    assert resp_status.status_code == 403
+
+
+def test_usuario_sem_autenticacao_nao_pode_alterar_status_pedido(
+    cliente, pedido):
+  
+    resp_status = cliente.put(
+        f"/pedidos/{pedido.id}/status",
+        json={
+            "status": "pago"
+        },
+    )
+
+    assert resp_status.status_code == 401
+
+def test_admin_alterar_status_pedido_inexistente(cliente, headers_admin):
+    resp_status = cliente.put(f"/pedidos/999/status", 
+    headers=headers_admin, 
+    json=
+        {
+            "status": "pago"
+        }
+    )
+
+    assert resp_status.status_code == 404
+
