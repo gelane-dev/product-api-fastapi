@@ -16,7 +16,33 @@ def  test_cliente_nao_pode_criar_produto(cliente, headers_cliente, db):
     assert verificar == 0 
 
 
-def test_admin_criar_produto(cliente, headers_admin, db):
+def test_cliente_nao_pode_atualizar_produto(cliente, headers_cliente, produto):
+    resp = cliente.put(f"/produtos/{produto.id}", 
+    headers=headers_cliente, 
+    json={  
+        "name": "panela inox",
+        "categoria": "cozinha",
+        "preco": 150,
+        "estoque": 20,
+    })
+
+    assert resp.status_code == 403
+
+
+def test_cliente_nao_pode_deletar_produto(cliente, headers_cliente, produto, db):
+    resp = cliente.delete(f"/produtos/{produto.id}",
+    headers=headers_cliente 
+    )
+
+    verificar = db.query(Produto).filter(
+    Produto.id == produto.id
+    ).first()
+    
+    assert resp.status_code == 403
+    assert verificar is not None
+
+
+def test_admin_pode_criar_produto(cliente, headers_admin, db):
     resp = cliente.post("/produtos/", 
     headers=headers_admin, 
     json={  
@@ -27,8 +53,8 @@ def test_admin_criar_produto(cliente, headers_admin, db):
     })
 
     verificar = db.query(Produto).filter(
-        Produto.name == "panela"
-        ).first()
+    Produto.name == "panela"
+    ).first()
 
     assert resp.status_code == 201
     assert verificar is not None
@@ -38,7 +64,7 @@ def test_admin_criar_produto(cliente, headers_admin, db):
     assert verificar.estoque == 10
 
 
-def test_admin_atualizar_produto(cliente, headers_admin, produto, db):
+def test_admin_pode_atualizar_produto(cliente, headers_admin, produto, db):
     resp = cliente.put(f"/produtos/{produto.id}", 
     headers=headers_admin, 
     json={  
@@ -49,9 +75,9 @@ def test_admin_atualizar_produto(cliente, headers_admin, produto, db):
     })
 
     verificar = db.query(Produto).filter(
-        Produto.name == "panela inox"
-        ).first()
-    
+    Produto.id == produto.id
+    ).first()
+        
     assert resp.status_code == 200
     assert verificar is not None
     assert verificar.name == "panela inox"
@@ -60,20 +86,20 @@ def test_admin_atualizar_produto(cliente, headers_admin, produto, db):
     assert verificar.estoque == 20
 
 
-def test_admin_deletar_produto(cliente, headers_admin, produto, db):
+def test_admin_pode_deletar_produto(cliente, headers_admin, produto, db):
     resp = cliente.delete(f"/produtos/{produto.id}",
     headers=headers_admin 
     )
 
     verificar = db.query(Produto).filter(
-        Produto.name == "panela"
-        ).first()
+    Produto.id == produto.id
+    ).first()
     
     assert resp.status_code == 200
     assert verificar is None
 
 
-def test_admin_atualizar_produto_inexistente(cliente, headers_admin):
+def test_admin_nao_pode_atualizar_produto_inexistente(cliente, headers_admin):
     resp = cliente.put("/produtos/999", 
     headers=headers_admin, 
     json={  
@@ -86,7 +112,7 @@ def test_admin_atualizar_produto_inexistente(cliente, headers_admin):
     assert resp.status_code == 404
 
 
-def test_admin_deletar_produto_inexistente(cliente, headers_admin):
+def test_admin_nao_pode_deletar_produto_inexistente(cliente, headers_admin):
     resp = cliente.delete("/produtos/999",
     headers=headers_admin
     )
@@ -94,7 +120,7 @@ def test_admin_deletar_produto_inexistente(cliente, headers_admin):
     assert resp.status_code == 404
 
 
-def test_usuario_nao_autenticado(cliente):
+def test_usuario_nao_autenticado_nao_pode_criar_produto(cliente):
     resp = cliente.post("/produtos/", 
     json={  
         "name": "panela",
@@ -104,3 +130,36 @@ def test_usuario_nao_autenticado(cliente):
     })
 
     assert resp.status_code == 401
+ 
+
+def test_usuario_nao_autenticado_nao_pode_atualizar_produto(cliente,produto, db):
+    resp = cliente.put(f"/produtos/{produto.id}", 
+    json={  
+        "name": "panela inox",
+        "categoria": "cozinha",
+        "preco": 150,
+        "estoque": 20,
+    })
+
+    verificar = db.query(Produto).filter(
+    Produto.id == produto.id
+    ).first()
+    
+    assert resp.status_code == 401
+    assert verificar is not None
+    assert verificar.name == "panela"
+    assert verificar.categoria == "cozinha"
+    assert verificar.preco == 100
+    assert verificar.estoque == 10
+
+
+def test_usuario_nao_autenticado_nao_pode_deletar_produto(cliente, produto, db):
+    resp = cliente.delete(f"/produtos/{produto.id}",
+    )
+
+    verificar = db.query(Produto).filter(
+    Produto.id == produto.id
+    ).first()
+    
+    assert resp.status_code == 401
+    assert verificar is not None
