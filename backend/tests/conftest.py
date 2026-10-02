@@ -9,7 +9,7 @@ from app.core.database import Base
 from app.core.security import hash_senha
 from app.dependencies import get_db
 from app.main import app
-from app.models import Usuario, Produto
+from app.models import Usuario, Produto, Pedido, ItemPedido
  
 DATABASE_URL_TESTE = os.getenv("DATABASE_URL_TESTE")
  
@@ -101,3 +101,24 @@ def produto(db):
     db.add(produto)
     db.commit()
     return produto
+
+@pytest.fixture
+def pedido(db, usuario_cliente, produto):
+    pedido = Pedido(
+        usuario_id=usuario_cliente.id,
+        total=100,
+    )
+
+    item = ItemPedido(
+        quantidade=1,
+        preco_unitario=produto.preco,
+        produto_id=produto.id,
+    )
+
+    pedido.itens.append(item)
+
+    db.add(pedido)
+    db.commit()
+    db.refresh(pedido)
+
+    return pedido
