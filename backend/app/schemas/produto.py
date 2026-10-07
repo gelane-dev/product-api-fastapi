@@ -15,3 +15,15 @@ class AtualizarProduto(BaseModel):
     categoria: Optional[str] = None
     preco: Optional[float] = None
     estoque: Optional[int] = None
+
+
+class ProdutoResponse(BaseModel):
+    id: int
+    name: str
+    categoria: str
+    preco: float
+    estoque: int
+    imagem_url: str | None = None
+
+    class Config:
+        from_attributes = True
