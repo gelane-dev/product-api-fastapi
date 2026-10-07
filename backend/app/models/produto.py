@@ -15,6 +15,7 @@ class Produto(Base):
     categoria: Mapped[str] = mapped_column(String(100))
     preco: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)
     estoque: Mapped[int] = mapped_column(nullable=False)
+    imagem_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
     data_criacao: Mapped[datetime] = mapped_column(
         DateTime, default=datetime.now, nullable=False
     )
