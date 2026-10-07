@@ -1,6 +1,8 @@
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, HTTPException
+import cloudinary.uploader
+
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
 
@@ -52,6 +54,61 @@ def criar_produtos(
     except OperationalError:
         db.rollback()
         raise HTTPException(status_code=500, detail="Erro ao criar produto no banco de dados")
+
+
+@router.post("/{id}/imagem")
+def adicionar_imagem(
+    id: int,
+    imagem: UploadFile = File(...),
+    admin: dict = Depends(exigir_admin),
+    db: Session = Depends(get_db),
+):
+    try:
+        produto = db.query(Produto).filter(Produto.id == id).first()
+
+        if produto is None:
+            raise HTTPException(
+                status_code=404,
+                detail="Produto não encontrado"
+            )
+
+        tipos_permitidos = {
+            "image/jpeg",
+            "image/png",
+            "image/webp",
+        }
+
+        if imagem.content_type not in tipos_permitidos:
+            raise HTTPException(
+                status_code=400,
+                detail="Formato de imagem não permitido"
+            )
+
+        resultado = cloudinary.uploader.upload(
+            imagem.file,
+            folder="ecommerce/produtos"
+        )
+
+        produto.imagem_url = resultado["secure_url"]
+
+        db.add(produto)
+        db.commit()
+        db.refresh(produto)
+
+        return {
+            "mensagem": "Imagem adicionada com sucesso",
+            "imagem_url": produto.imagem_url,
+        }
+
+    except HTTPException:
+        raise
+
+    except OperationalError:
+        db.rollback()
+        raise HTTPException(
+            status_code=500,
+            detail="Erro ao salvar imagem no banco de dados"
+        )
 
 
 @router.put("/{id}")
