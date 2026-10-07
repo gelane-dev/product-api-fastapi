@@ -1,0 +1,72 @@
+/* Container que centraliza os cards no meio da tela e os coloca lado a lado */
+.card-container {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 20px;
+  min-height: 100vh;
+  padding: 40px;
+  background-color: #f7f7f7;
+  box-sizing: border-box;
+  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+}
+
+/* O card individual com fundo branco e posicionamento relativo */
+.card-produto {
+  position: relative;
+  width: 280px;
+  background-color: #ffffff;
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.card-produto:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+}
+
+/* Imagem do produto vinda da API */
+.card-imagem {
+  width: 100%;
+  height: 350px;
+  object-fit: cover;
+  display: block;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+/* Conteúdo de texto abaixo da imagem */
+.card-conteudo {
+  padding: 16px;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.card-titulo {
+  margin: 0;
+  font-size: 1.0rem;
+  font-weight: 400;
+  color: #333333;
+}
+
+.card-preco {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #2e7d32;
+}
+
+/* Botão Favoritar sobreposto no canto superior direito da imagem */
+.card-favorito-posicionador {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 10;
+}

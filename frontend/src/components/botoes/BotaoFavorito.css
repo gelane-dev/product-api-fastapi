@@ -1,0 +1,22 @@
+.botao-favoritar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: 1px solid #ddd;
+  border-radius: 20px;
+  background-color: rgba(255, 255, 255, 0.85);
+  cursor: pointer;
+  transition: background-color 0.2s ease, border-color 0.2s ease;
+  font-size: 0.85rem;
+  color: #333;
+}
+
+.botao-favoritar:hover {
+  background-color: #ffffff;
+  border-color: #ccc;
+}
+
+.icone-favorito {
+  font-size: 1.1rem;
+}
